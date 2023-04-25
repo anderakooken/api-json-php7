@@ -1,0 +1,102 @@
+@startuml
+!theme cerulean
+!pragma teoz true
+
+actor user
+boundary httpProtocol
+control szarca7
+entity sources
+database SGBD
+collections web
+
+{start} user -> httpProtocol : HTTP Request
+
+rnote over httpProtocol
+JSON (URL)
+endrnote
+activate httpProtocol 
+
+httpProtocol -> szarca7 : function call
+activate szarca7 
+
+alt permissionTrue
+
+    note over szarca7 #fff
+        <color:black> .config [file]</color>
+    endnote
+
+    loop
+        szarca7 -> szarca7 : {users, permissions, sources}
+    end
+    
+     alt file cache exist
+         {end} szarca7 -> szarca7 : {cache, duration}
+       {start} <-> {end} : diff [date file cache x date request]
+
+            return [Open JSON File]
+            httpProtocol -> user : successful msg
+
+            else cache not exist
+
+alt online
+       
+        activate szarca7
+        szarca7 -> sources : Data source request
+        activate sources
+
+            alt is sgbd connection
+
+                sources -> SGBD
+                activate SGBD
+
+                rnote over SGBD
+                    PDO()
+                endrnote
+                return [ArrayData[]]
+                destroy SGBD
+                
+
+            else is JSON or XML
+
+                sources -> web
+                activate web
+
+                rnote over web
+                    HTTP Request
+                endrnote
+
+                return [PlainText]
+                destroy web
+
+            end
+
+            return [data - plain text]
+            szarca7 -> szarca7 : convert to JSON format
+            szarca7 -> szarca7 : save cache file
+
+            note over szarca7 #fff
+                <color:black> [cache/{function}.json]</color>
+            endnote
+
+            szarca7 -> httpProtocol : [Open JSON File]
+            httpProtocol -> user : successful msg
+
+        else offline
+            sources -> szarca7 : is offline
+            szarca7 -> httpProtocol : failure msg
+            httpProtocol -> user : failure msg
+        end
+
+    else permissionFalse
+
+        szarca7 -> httpProtocol : has no permission
+        httpProtocol -> user : failure msg
+      
+    end
+end
+
+rnote over httpProtocol
+JSON File Returned
+endrnote
+
+@enduml
